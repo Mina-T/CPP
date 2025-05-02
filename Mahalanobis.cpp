@@ -18,7 +18,7 @@ struct Columns {
     vector<float> std_dev;
 };
 
-
+// load CSV file, returns ref, avg, std of the ensembels
 Columns load_csv(string filename){
 	io::CSVReader<3> in(filename);
 	in.read_header(io::ignore_extra_column, "ref", "avg", "std");
@@ -36,6 +36,7 @@ Columns load_csv(string filename){
 
 }
 
+// compute calibration factor
 float alpha_sqr(const vector<float> &ref, const vector<float> &avg, const vector<float> &std_dev){
         size_t ref_size = ref.size();
 	vector <float> diff(ref_size);
@@ -57,12 +58,11 @@ float alpha_sqr(const vector<float> &ref, const vector<float> &avg, const vector
 }
 
 
-
+// load the input file
 vector<vector<double>> load_npy_file(const string &filename){
 	try {
 		cnpy::NpyArray arr = cnpy::npy_load(filename);
 	 
-	//get the dimension of the array//
 	size_t n_atom = arr.shape[0];
 	size_t n_features = arr.shape[1];
 	cout << "input array dimension: " << n_atom << "*" << n_features << "\n";
@@ -86,11 +86,11 @@ vector<vector<double>> load_npy_file(const string &filename){
 
 
 
-
+// compute the covariance of the training set (or any reference set)
 vector<vector<double>> covariance(const vector<vector<double>> &F_matrix){
 	size_t n_atom = F_matrix.size();
         size_t n_features = F_matrix[0].size();
-
+        // compute the mean of the dataset
 	vector<double> means(n_features, 0);
 	for (size_t j = 0; j < n_features; j ++){
 	means[j] = 0;
@@ -98,14 +98,14 @@ vector<vector<double>> covariance(const vector<vector<double>> &F_matrix){
 	    means[j] += F_matrix[i][j];}
 	means[j] /= n_atom ;
 	}
-
+        // center the dataset
         vector<vector<double>> centered_features(n_atom, vector<double>(n_features));
 	for (size_t i = 0; i < n_atom; i ++){
 		for (size_t j = 0; j < n_features; j ++){
 			centered_features[i][j] = F_matrix[i][j] - means[j];
 		}
 	}
-        
+        // compute the covariance of the datset
 	vector<vector<double>> cov_matrix(n_features, vector<double>(n_features));
 	for (size_t j1 = 0; j1 < n_features; j1 ++){
 	    for (size_t j2 = 0; j2 < n_features; j2 ++) {
@@ -120,10 +120,12 @@ vector<vector<double>> covariance(const vector<vector<double>> &F_matrix){
 return cov_matrix ;
 }
 
+// inverse the covariance matrix
 vector<vector<double>> inverse(const vector<vector<double>> &cov_matrix){
 	if (cov_matrix.size() != cov_matrix[0].size()) {
         throw runtime_error("Matrix must be square to invert.");
     }
+	// convert to eigen matrix type
 	MatrixXd eigen_cov_matrix(cov_matrix.size(), cov_matrix[0].size());
 	for (size_t i = 0; i < cov_matrix.size(); ++i) {
             for (size_t j = 0; j < cov_matrix[0].size(); ++j) {
@@ -136,7 +138,7 @@ vector<vector<double>> inverse(const vector<vector<double>> &cov_matrix){
 	if (!lu_decomp.isInvertible()) {
         cout << "Covariance matrix is singular, using ridge regularization:" << "\n";
 	double epsilon = 1e-8;
-       	
+       	// add a regularization value (epsilon) in case of a Singular matrix, compute the inverse
         MatrixXd regularized = eigen_cov_matrix + epsilon * MatrixXd::Identity(eigen_cov_matrix.rows(), eigen_cov_matrix.cols());
         eigen_inv_matrix =  regularized.inverse();
 	}
@@ -144,7 +146,7 @@ vector<vector<double>> inverse(const vector<vector<double>> &cov_matrix){
 	else {
 	MatrixXd eigen_inv_matrix = eigen_cov_matrix.inverse();	
 	}
-
+        // convert the inversed matrix from eigen matrix to vector type
 	vector<vector<double>> result(eigen_inv_matrix.rows(), vector<double>(eigen_inv_matrix.cols()));
         for (size_t i = 0; i < eigen_inv_matrix.rows(); ++i) {
             for (size_t j = 0; j < eigen_inv_matrix.cols(); ++j) {
