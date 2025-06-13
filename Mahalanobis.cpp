@@ -9,7 +9,7 @@
 #include <Eigen/Dense>
 using namespace Eigen; 
 using namespace std;
-
+// How close a point actually is to a distribution of points
 // g++ -o Mahalanobis Mahalanobis.cpp -pthread -I/leonardo/home/userexternal/mtaleblo/cnpy -L/leonardo/home/userexternal/mtaleblo/cnpy/build -lcnpy//
 
 struct Columns {
